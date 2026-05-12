@@ -1,0 +1,9 @@
+digraph G {
+"map" -> "succulence/odom"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"succulence/base_link" -> "succulence/lidar_link"[label=" Broadcaster: default_authority\nAverage rate: 9.461\nBuffer length: 4.757\nMost recent transform: 1777695332.831678\nOldest transform: 1777695328.07509\n"];
+"succulence/odom" -> "succulence/base_link"[label=" Broadcaster: default_authority\nAverage rate: 50.173\nBuffer length: 4.783\nMost recent transform: 1777695332.83112\nOldest transform: 1777695328.047665\n"];
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 1777695332.8453398"[ shape=plaintext ] ;
+}->"map";
+}
