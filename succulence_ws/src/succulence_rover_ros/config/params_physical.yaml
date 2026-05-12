@@ -135,7 +135,7 @@ occupancy_grid_mapper:
       # max_range Smaller: only nearby returns trusted, smaller built map.
       # min_range Larger: ignores closer returns (filters body reflections).
       # min_range Smaller: includes closer returns (risks self-hits).
-      max_range: 3.0
+      max_range: 5. # was 3
       min_range: 0.1
 
     # See motion_model.lidar above for offsets.
@@ -321,8 +321,8 @@ planner_node:
     # Increase x: goal moves east. Decrease x: goal moves west.
     # Increase y: goal moves north. Decrease y: goal moves south.
     goal:
-      x: 0.5
-      y: 2.0
+      x: 0.25
+      y: 2.35
 
 
 # ====================================================================
@@ -352,13 +352,13 @@ navigator_node:
       # Larger: faster mission completion but stresses scan matching and
       #   widens turning radius at the controller.
       # Smaller: slower but safer; better localisation and tighter turns.
-      max_linear_v: 0.30 # default 0.15 , was 0.10
+      max_linear_v: 0.10 # default 0.15 , was 0.10
 
       # Maximum angular speed in rad/s.
       # Larger: tighter turns possible at speed, harder on scan matching
       #   (rotation is the failure mode).
       # Smaller: rover spins more slowly; may struggle on sharp corners.
-      max_angular_v: 0.20 # default 0.15, was 0.10
+      max_angular_v: 0.10 # default 0.15, was 0.10
 
       # Distance to the goal at which the navigator declares arrival
       # and stops.

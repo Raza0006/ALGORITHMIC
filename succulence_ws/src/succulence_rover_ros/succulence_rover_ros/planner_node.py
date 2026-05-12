@@ -103,7 +103,7 @@ class PlannerNode(Node):
         soft_inflated = inflated & ~occupied
 
         cost_map = np.zeros_like(grid, dtype=float)
-        cost_map[soft_inflated] = 5.0
+        cost_map[soft_inflated] = 25.0 # was 5
 
         blocked = occupied
 
