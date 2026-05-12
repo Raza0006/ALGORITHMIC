@@ -152,7 +152,15 @@ slam_node:
   ros__parameters:
     scan_topic: "/scan"          # physical: "/scan"
     odom_topic: "/odom"          # physical: "/odom"
-
+    global_scan_matcher:
+      enabled: true
+      search_x: 0.3
+      search_y: 0.3
+      search_theta: 0.15
+      resolution_x: 0.05
+      resolution_y: 0.05
+      resolution_theta: 0.02
+      min_score: 0.55
     # Outputs from SLAM.
     map_topic: "/succulence/map"
     slam_odometry_topic: "/succulence/slam/odometry"
@@ -352,13 +360,13 @@ navigator_node:
       # Larger: faster mission completion but stresses scan matching and
       #   widens turning radius at the controller.
       # Smaller: slower but safer; better localisation and tighter turns.
-      max_linear_v: 0.10 # default 0.15 , was 0.10
+      max_linear_v: 0.20 # default 0.15 , was 0.10
 
       # Maximum angular speed in rad/s.
       # Larger: tighter turns possible at speed, harder on scan matching
       #   (rotation is the failure mode).
       # Smaller: rover spins more slowly; may struggle on sharp corners.
-      max_angular_v: 0.10 # default 0.15, was 0.10
+      max_angular_v: 0.05 # default 0.15, was 0.10
 
       # Distance to the goal at which the navigator declares arrival
       # and stops.

@@ -27,6 +27,50 @@ class SlamNode(Node):
     def __init__(self):
         super().__init__('slam_node')
 
+                # GLOBAL REFERENCING DECLARATIONS
+        self.declare_parameter("global_scan_matcher.enabled", True)
+        self.declare_parameter("global_scan_matcher.search_x", 0.3)
+        self.declare_parameter("global_scan_matcher.search_y", 0.3)
+        self.declare_parameter("global_scan_matcher.search_theta", 0.15)
+        self.declare_parameter("global_scan_matcher.resolution_x", 0.05)
+        self.declare_parameter("global_scan_matcher.resolution_y", 0.05)
+        self.declare_parameter("global_scan_matcher.resolution_theta", 0.02)
+        self.declare_parameter("global_scan_matcher.min_score", 0.55)
+
+        self.global_match_enabled = self.get_parameter(
+            "global_scan_matcher.enabled"
+        ).value
+
+        self.global_search_x = self.get_parameter(
+            "global_scan_matcher.search_x"
+        ).value
+
+        self.global_search_y = self.get_parameter(
+            "global_scan_matcher.search_y"
+        ).value
+
+        self.global_search_theta = self.get_parameter(
+            "global_scan_matcher.search_theta"
+        ).value
+
+        self.global_resolution_x = self.get_parameter(
+            "global_scan_matcher.resolution_x"
+        ).value
+
+        self.global_resolution_y = self.get_parameter(
+            "global_scan_matcher.resolution_y"
+        ).value
+
+        self.global_resolution_theta = self.get_parameter(
+            "global_scan_matcher.resolution_theta"
+        ).value
+
+        self.global_min_score = self.get_parameter(
+            "global_scan_matcher.min_score"
+        ).value
+
+
+
         self.declare_parameter('scan_topic')
         self.declare_parameter('odom_topic')
         self.declare_parameter('map_topic')
@@ -200,14 +244,63 @@ class SlamNode(Node):
         """Core SLAM loop: add node, add edges (odom + scan-match), optimise."""
         ranges = np.array(scan_msg.ranges)
         angle_increment = scan_msg.angle_increment
+        ####
         scan_points = scans_from_ranges(
             ranges, scan_msg.angle_min, angle_increment,
             min_range=self.occupancy_grid.min_range,
             max_range=self.occupancy_grid.max_range,
-            lidar_yaw_offset=self.lidar_yaw_offset)
+            lidar_yaw_offset=self.lidar_yaw_offset
+        )
+
+        # ------------------------------------------------------------
+        # Global scan matching: compare current scan against existing map
+        # BEFORE adding this scan into the map.
+        # ------------------------------------------------------------
+        if self.global_match_enabled and self.keyframe_count > 0:
+            # Use a ROS map message just to get map metadata/info.
+            map_msg = self.occupancy_grid.to_ros_message(
+                frame_id='map',
+                timestamp=self.get_clock().now().to_msg()
+            )
+
+            # Convert current log-odds grid into an occupied/free style grid.
+            # In log-odds maps, values > 0 generally mean likely occupied.
+            map_grid = self.occupancy_grid.grid.copy()
+
+            corrected_pose, global_score = self.scan_matcher.match_scan_to_map(
+                map_grid=map_grid,
+                map_info=map_msg.info,
+                scan_points=scan_points,
+                initial_pose=self.current_odom_pose.copy(),
+                occupancy_threshold=0.1,
+                search_x=self.global_search_x,
+                search_y=self.global_search_y,
+                search_theta=self.global_search_theta,
+                resolution_x=self.global_resolution_x,
+                resolution_y=self.global_resolution_y,
+                resolution_theta=self.global_resolution_theta,
+                min_score=self.global_min_score
+            )
+
+            if global_score >= self.global_min_score:
+                self.get_logger().info(
+                    f'Global scan match accepted: score={global_score:.3f}, '
+                    f'pose shift=[{corrected_pose[0] - self.current_odom_pose[0]:+.3f}, '
+                    f'{corrected_pose[1] - self.current_odom_pose[1]:+.3f}, '
+                    f'{corrected_pose[2] - self.current_odom_pose[2]:+.3f}]'
+                )
+
+                self.current_odom_pose = corrected_pose.copy()
+
+            else:
+                self.get_logger().warn(
+                    f'Global scan match rejected: score={global_score:.3f} < '
+                    f'{self.global_min_score:.3f}'
+                )
 
         node_id = self.pose_graph.add_node(self.current_odom_pose)
-
+        ####
+        
         if self.last_keyframe_pose is not None and self.last_keyframe_scan is not None:
             odom_relative = utils.pose_difference(
                 self.last_keyframe_pose, self.current_odom_pose)

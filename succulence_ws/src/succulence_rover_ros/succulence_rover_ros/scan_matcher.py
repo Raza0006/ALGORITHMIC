@@ -176,6 +176,121 @@ class ScanMatcher:
         # Return as float to match the function signature.
         return float(score)
         
+    # Global scan referencing
+    def _score_scan_against_map(self,
+                            map_grid: np.ndarray,
+                            map_info,
+                            scan_points: np.ndarray,
+                            pose: np.ndarray,
+                            occupancy_threshold: int) -> float:
+        """
+        Score how well the current scan aligns with the existing global map.
+
+        map_grid: occupancy grid as 2D numpy array
+        map_info: OccupancyGrid.info from ROS
+        scan_points: Nx2 laser points in robot/base_link frame
+        pose: candidate robot pose in map frame [x, y, theta]"""
+
+        if len(scan_points) == 0:
+            return 0.0
+
+        x, y, theta = pose
+        c, s = np.cos(theta), np.sin(theta)
+
+        px = scan_points[:, 0]
+        py = scan_points[:, 1]
+
+        # Transform scan points from robot frame into map/world frame
+        wx = x + c * px - s * py
+        wy = y + s * px + c * py
+
+        # Convert world coordinates into map grid cells
+        cols = ((wx - map_info.origin.position.x) / map_info.resolution).astype(int)
+        rows = ((wy - map_info.origin.position.y) / map_info.resolution).astype(int)
+
+        valid = (
+            (rows >= 0) & (rows < map_info.height) &
+            (cols >= 0) & (cols < map_info.width)
+        )
+
+        if np.sum(valid) == 0:
+            return 0.0
+
+        occupied_hits = map_grid[rows[valid], cols[valid]] >= occupancy_threshold
+
+        # Normalised score: fraction of valid scan points that hit occupied map cells
+        return float(np.sum(occupied_hits)) / float(np.sum(valid))
+
+
+    def match_scan_to_map(self,
+                        map_grid: np.ndarray,
+                        map_info,
+                        scan_points: np.ndarray,
+                        initial_pose: np.ndarray,
+                        occupancy_threshold: int,
+                        search_x: float = 0.3,
+                        search_y: float = 0.3,
+                        search_theta: float = 0.15,
+                        resolution_x: float = 0.05,
+                        resolution_y: float = 0.05,
+                        resolution_theta: float = 0.02,
+                        min_score: float = 0.55):
+        """
+        Match the current scan against the existing global occupancy map.
+
+        Returns:
+            best_pose: corrected pose [x, y, theta]
+            best_score: normalised score
+        """
+
+        if len(scan_points) == 0:
+            return initial_pose.copy(), 0.0
+
+        x0, y0, theta0 = initial_pose
+
+        x_values = np.arange(
+            x0 - search_x,
+            x0 + search_x + resolution_x * 0.5,
+            resolution_x
+        )
+
+        y_values = np.arange(
+            y0 - search_y,
+            y0 + search_y + resolution_y * 0.5,
+            resolution_y
+        )
+
+        theta_values = np.arange(
+            theta0 - search_theta,
+            theta0 + search_theta + resolution_theta * 0.5,
+            resolution_theta
+        )
+
+        best_score = -1.0
+        best_pose = initial_pose.copy()
+
+        for x in x_values:
+            for y in y_values:
+                for theta in theta_values:
+                    candidate = np.array([x, y, theta])
+
+                    score = self._score_scan_against_map(
+                        map_grid,
+                        map_info,
+                        scan_points,
+                        candidate,
+                        occupancy_threshold
+                    )
+
+                    if score > best_score:
+                        best_score = score
+                        best_pose = candidate
+
+        if best_score < min_score:
+            return initial_pose.copy(), best_score
+
+        return best_pose, best_score
+
 
     # ========================================================================
     # STUDENT TODO #3: Main Scan Matching Function
